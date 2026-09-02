@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Química Premium | Jornada Interativa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#0B0F19',
+                        electric: '#00E5FF',
+                        neonPurple: '#B026FF',
+                        success: '#00E676',
+                        glass: 'rgba(255, 255, 255, 0.05)',
+                        glassBorder: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0B0F19; color: #fff; overflow-x: hidden; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+        }
+        .neon-text { text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); }
+        .particle { transition: all 0.3s ease; }
+        
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 24px; width: 24px;
+            border-radius: 50%; background: #00E5FF;
+            cursor: pointer; margin-top: -8px;
+            box-shadow: 0 0 15px rgba(0,229,255,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 8px; cursor: pointer;
+            background: rgba(255,255,255,0.1); border-radius: 4px;
+        }
+        
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass-panel sticky top-0 z-50 flex justify-between items-center p-4 mx-4 mt-4">
+        <div class="text-xl font-bold flex items-center gap-2 cursor-pointer" onclick="navigate('dashboard')">
+            <i class="fa-solid fa-flask text-electric"></i>
+            <span class="tracking-wide">QUIMICA<span class="text-electric neon-text">.io</span></span>
+        </div>
+        <div class="flex gap-4 items-center">
+            <div class="bg-white/10 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-fire text-orange-500"></i> <span id="nav-streak">3 Dias</span>
+            </div>
+            <div class="bg-white/10 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-star text-neonPurple"></i> <span id="nav-xp">0 XP</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main id="app-container" class="flex-grow p-4 max-w-5xl mx-auto w-full mt-6 fade-in"></main>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        let state = {
+            xp: parseInt(localStorage.getItem('quimica_xp')) || 0,
+            progress: parseInt(localStorage.getItem('quimica_progress')) || 12,
+            ch4_completed: localStorage.getItem('quimica_ch4') === 'true'
+        };
+
+        function addXP(amount) {
+            state.xp += amount;
+            localStorage.setItem('quimica_xp', state.xp);
+            updateNav();
+            showToast(`+${amount} XP!`, 'success');
+        }
+
+        function updateNav() {
+            document.getElementById('nav-xp').innerText = `${state.xp} XP`;
+        }
+
+        // --- ROUTER ---
+        const views = {
+            dashboard: renderDashboard,
+            journey: renderJourney,
+            chapter4: renderChapter4
+        };
+
+        function navigate(viewName) {
+            const container = document.getElementById('app-container');
+            container.innerHTML = views[viewName]();
+            container.classList.remove('fade-in');
+            void container.offsetWidth; // trigger reflow
+            container.classList.add('fade-in');
+            
+            if(viewName === 'chapter4') initSimulator();
+        }
+
+        // --- COMPONENTS ---
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-6 right-6 px-6 py-3 rounded-lg font-bold text-white shadow-lg z-50 fade-in ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // --- VIEWS ---
+        function renderDashboard() {
+            return `
+                <div class="text-center mb-12">
+                    <h1 class="text-5xl font-extrabold mb-4">Domine a <span class="text-transparent bg-clip-text bg-gradient-to-r from-electric to-neonPurple">Química</span>.</h1>
+                    <p class="text-gray-400 text-lg">Entenda. Experimente. Resolva.</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Progresso -->
+                    <div class="glass-panel p-8">
+                        <h2 class="text-xl font-bold mb-4 flex justify-between">
+                            Jornada Atual <span class="text-electric">${state.progress}%</span>
+                        </h2>
+                        <div class="w-full bg-white/10 rounded-full h-3 mb-6">
+                            <div class="bg-gradient-to-r from-electric to-neonPurple h-3 rounded-full shadow-[0_0_10px_#00E5FF]" style="width: ${state.progress}%"></div>
+                        </div>
+                        <div class="flex gap-4 text-sm text-gray-300">
+                            <div class="bg-white/5 p-3 rounded-lg flex-1 text-center border border-white/5">
+                                <i class="fa-solid fa-brain text-electric block text-2xl mb-2"></i>
+                                4 Conceitos dominados
+                            </div>
+                            <div class="bg-white/5 p-3 rounded-lg flex-1 text-center border border-white/5">
+                                <i class="fa-solid fa-bullseye text-neonPurple block text-2xl mb-2"></i>
+                                Próxima Missão: Estados da Matéria
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CTA -->
+                    <div class="glass-panel p-8 flex flex-col justify-center items-center text-center relative overflow-hidden group cursor-pointer" onclick="navigate('journey')">
+                        <div class="absolute inset-0 bg-gradient-to-br from-electric/10 to-neonPurple/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <i class="fa-solid fa-map-location-dot text-5xl mb-4 text-electric group-hover:scale-110 transition-transform"></i>
+                        <h2 class="text-2xl font-bold mb-2">Continuar Jornada</h2>
+                        <p class="text-gray-400">Ir para o Mapa de Aprendizagem</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderJourney() {
+            return `
+                <h2 class="text-3xl font-bold mb-8 text-center"><i class="fa-solid fa-map"></i> Mapa da Jornada</h2>
+                <div class="flex flex-col items-center gap-4 relative">
+                    <!-- Linha conectora -->
+                    <div class="absolute h-full w-1 bg-white/10 left-1/2 transform -translate-x-1/2 z-0"></div>
+
+                    <!-- Nó 1 (Concluído mock) -->
+                    <div class="glass-panel p-6 w-full max-w-md z-10 border-success/50 relative">
+                        <div class="absolute -left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-success rounded-full flex justify-center items-center text-xs"><i class="fa-solid fa-check"></i></div>
+                        <h3 class="text-lg font-bold text-gray-400">Capítulo 3</h3>
+                        <p class="text-gray-500 text-sm">Misturas e Soluções</p>
+                    </div>
+
+                    <!-- Nó 2 (Atual) -->
+                    <div class="glass-panel p-6 w-full max-w-md z-10 border-electric shadow-[0_0_15px_rgba(0,229,255,0.2)] cursor-pointer transform hover:scale-105 transition-transform" onclick="navigate('chapter4')">
+                        <div class="absolute -left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-electric rounded-full flex justify-center items-center text-xs text-dark"><i class="fa-solid fa-play"></i></div>
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Capítulo 4</h3>
+                                <p class="text-electric text-sm">Estados e Vapor</p>
+                            </div>
+                            <span class="bg-electric/20 text-electric px-3 py-1 rounded-full text-xs font-bold">EM ANDAMENTO</span>
+                        </div>
+                    </div>
+
+                    <!-- Nó 3 (Bloqueado) -->
+                    <div class="glass-panel p-6 w-full max-w-md z-10 opacity-50">
+                        <div class="absolute -left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-gray-600 rounded-full flex justify-center items-center text-xs"><i class="fa-solid fa-lock"></i></div>
+                        <h3 class="text-lg font-bold text-gray-400">Capítulo 5</h3>
+                        <p class="text-gray-500 text-sm">Propriedades Coligativas</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderChapter4() {
+            return `
+                <button onclick="navigate('journey')" class="text-gray-400 hover:text-white mb-6"><i class="fa-solid fa-arrow-left"></i> Voltar ao Mapa</button>
+                
+                <h1 class="text-4xl font-bold mb-2">Quando a matéria muda</h1>
+                <p class="text-xl text-gray-400 mb-8">Estados físicos, equilíbrio e comportamento dos líquidos.</p>
+
+                <!-- Hook -->
+                <div class="glass-panel p-6 border-l-4 border-neonPurple mb-8">
+                    <h3 class="font-bold text-neonPurple mb-2"><i class="fa-solid fa-lightbulb"></i> Já parou pra pensar?</h3>
+                    <p>Por que a água do mar evapora em temperatura ambiente, mas para fazer café você precisa aquecer até 100°C? Tudo se resume a <strong>energia</strong> e <strong>movimento</strong>.</p>
+                </div>
+
+                <!-- Simulator -->
+                <h2 class="text-2xl font-bold mb-4">Laboratório Virtual: Temperatura vs. Agitação</h2>
+                <div class="glass-panel p-8 mb-8 text-center bg-gradient-to-b from-white/5 to-transparent">
+                    <div id="sim-box" class="w-full max-w-sm h-64 mx-auto border-2 border-white/20 rounded-xl mb-6 relative overflow-hidden bg-black/50">
+                        <!-- Partículas injetadas via JS -->
+                    </div>
+                    
+                    <div class="flex justify-between text-sm text-gray-400 mb-2 font-mono">
+                        <span>-50°C (Sólido)</span>
+                        <span id="temp-display" class="text-xl text-white font-bold neon-text">20°C</span>
+                        <span>150°C (Gás)</span>
+                    </div>
+                    <input type="range" id="temp-slider" min="-50" max="150" value="20" class="w-full max-w-md">
+                    
+                    <div id="sim-feedback" class="mt-6 text-lg font-bold text-electric">Estado: LÍQUIDO</div>
+                </div>
+
+                <!-- Macete -->
+                <div class="grid md:grid-cols-2 gap-6 mb-8">
+                    <div class="glass-panel p-6 border border-yellow-500/30">
+                        <h3 class="text-yellow-500 font-bold mb-3"><i class="fa-solid fa-bolt"></i> Macete de Fixação</h3>
+                        <p class="text-sm mb-2"><span class="text-red-400 font-bold">ENERGIA ENTRA (Absorve):</span></p>
+                        <ul class="list-disc list-inside text-gray-300 text-sm mb-4">
+                            <li>Fusão (derreter)</li>
+                            <li>Vaporização (ferver)</li>
+                            <li>Sublimação</li>
+                        </ul>
+                        <p class="text-sm mb-2"><span class="text-blue-400 font-bold">ENERGIA SAI (Libera):</span></p>
+                        <ul class="list-disc list-inside text-gray-300 text-sm">
+                            <li>Solidificação (congelar)</li>
+                            <li>Condensação (suar)</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Desafio -->
+                    <div class="glass-panel p-6">
+                        <h3 class="text-electric font-bold mb-4"><i class="fa-solid fa-gamepad"></i> Desafio Rápido</h3>
+                        <p class="text-sm mb-4">Você está em La Paz (Bolívia), a 3.640m de altitude. A pressão atmosférica lá é menor que na praia. O que acontece com a temperatura de ebulição da água?</p>
+                        <div class="flex flex-col gap-2" id="quiz-options">
+                            <button onclick="handleAnswer(false, 'A água ferve em temperatura MAIOR.', 'Ainda não. Se a pressão externa é menor, a água precisa de menos energia (menor temperatura) para que sua pressão de vapor iguale a de fora.')" class="bg-white/5 hover:bg-white/10 p-3 rounded text-left transition-colors text-sm border border-transparent">Aumenta. Ferve a mais de 100°C.</button>
+                            <button onclick="handleAnswer(true, 'A água ferve em temperatura MENOR.', 'Mandou bem! Menor pressão atmosférica exige menor pressão de vapor para ferver. Ferve a aprox. 87°C.')" class="bg-white/5 hover:bg-white/10 p-3 rounded text-left transition-colors text-sm border border-transparent">Diminui. Ferve a menos de 100°C.</button>
+                            <button onclick="handleAnswer(false, 'A temperatura não muda.', 'Pegadinha! A temperatura de ebulição depende SIM da pressão externa. A regra é: Pressão Vapor = Pressão Externa.')" class="bg-white/5 hover:bg-white/10 p-3 rounded text-left transition-colors text-sm border border-transparent">Não altera. É sempre 100°C.</button>
+                        </div>
+                        <div id="quiz-feedback" class="mt-4 p-3 rounded text-sm hidden font-medium"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- CHAPTER 4 INTERACTIVE LOGIC ---
+        let particles = [];
+        function initSimulator() {
+            const box = document.getElementById('sim-box');
+            const slider = document.getElementById('temp-slider');
+            const display = document.getElementById('temp-display');
+            const feedback = document.getElementById('sim-feedback');
+
+            // Generate 30 particles
+            for(let i=0; i<30; i++) {
+                let p = document.createElement('div');
+                p.className = 'w-4 h-4 rounded-full absolute particle bg-blue-400';
+                box.appendChild(p);
+                particles.push(p);
+            }
+
+            function updateSimulation() {
+                const temp = parseInt(slider.value);
+                display.innerText = `${temp}°C`;
+
+                if(temp <= 0) {
+                    feedback.innerText = "Estado: SÓLIDO (Partículas unidas e vibrando pouco)";
+                    feedback.className = "mt-6 text-lg font-bold text-blue-300";
+                    particles.forEach((p, i) => {
+                        const row = Math.floor(i / 6);
+                        const col = i % 6;
+                        p.style.left = `${col * 20 + 80}px`;
+                        p.style.top = `${row * 20 + 120}px`;
+                        p.style.backgroundColor = '#93C5FD'; // blue-300
+                        p.style.transform = `translate(${Math.random()*2 - 1}px, ${Math.random()*2 - 1}px)`;
+                    });
+                } else if(temp > 0 && temp < 100) {
+                    feedback.innerText = "Estado: LÍQUIDO (Deslizando umas sobre as outras)";
+                    feedback.className = "mt-6 text-lg font-bold text-electric";
+                    particles.forEach((p, i) => {
+                        p.style.left = `${Math.random() * 200 + 40}px`;
+                        p.style.top = `${Math.random() * 80 + 150}px`;
+                        p.style.backgroundColor = '#00E5FF';
+                        p.style.transform = `translate(${Math.random()*10 - 5}px, ${Math.random()*10 - 5}px)`;
+                    });
+                } else {
+                    feedback.innerText = "Estado: GASOSO (Afastadas, alta energia cinética)";
+                    feedback.className = "mt-6 text-lg font-bold text-red-400";
+                    particles.forEach((p, i) => {
+                        p.style.left = `${Math.random() * 280 + 10}px`;
+                        p.style.top = `${Math.random() * 200 + 10}px`;
+                        p.style.backgroundColor = '#F87171';
+                        p.style.transform = `translate(${Math.random()*30 - 15}px, ${Math.random()*30 - 15}px)`;
+                    });
+                }
+            }
+
+            slider.addEventListener('input', updateSimulation);
+            updateSimulation(); // initial call
+            
+            // simple animation loop for liquid/gas wiggle
+            setInterval(() => {
+                if(document.getElementById('temp-slider')) updateSimulation();
+            }, 500);
+        }
+
+        // --- EXERCISE LOGIC ---
+        function handleAnswer(isCorrect, answerText, explanation) {
+            const fbBox = document.getElementById('quiz-feedback');
+            fbBox.classList.remove('hidden');
+            
+            if(isCorrect) {
+                fbBox.className = 'mt-4 p-3 rounded text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/50 fade-in';
+                fbBox.innerHTML = `🔥 <strong>Correto!</strong> ${explanation}`;
+                if(!state.ch4_completed) {
+                    addXP(50);
+                    state.ch4_completed = true;
+                    localStorage.setItem('quimica_ch4', 'true');
+                }
+            } else {
+                fbBox.className = 'mt-4 p-3 rounded text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/50 fade-in';
+                fbBox.innerHTML = `❌ <strong>Ainda não.</strong> ${explanation}`;
+            }
+        }
+
+        // Initialize
+        updateNav();
+        navigate('dashboard');
+    </script>
+</body>
+</html>
